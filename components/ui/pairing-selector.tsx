@@ -50,6 +50,23 @@ export function PairingSelector({
     }
   }, [selectedIndex]);
 
+  // Close dropdown when other dropdowns open
+  useEffect(() => {
+    const handleCloseOthers = (event: CustomEvent) => {
+      if (event.detail !== 'pairing') {
+        setSearchQuery("");
+        setSearchResults([]);
+        setSelectedIndex(-1);
+      }
+    };
+
+    window.addEventListener('closeOtherDropdowns', handleCloseOthers);
+    
+    return () => {
+      window.removeEventListener('closeOtherDropdowns', handleCloseOthers);
+    };
+  }, []);
+
   const handleAddPairing = (pairing: string) => {
     if (!selectedPairings.includes(pairing)) {
       onPairingsChange([...selectedPairings, pairing]);
@@ -68,23 +85,27 @@ export function PairingSelector({
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setSelectedIndex(prev => 
-          prev < searchResults.length - 1 ? prev + 1 : 0
-        );
+        setSelectedIndex(prev => {
+          if (prev === -1) return 0; // Start from first item
+          return prev < searchResults.length - 1 ? prev + 1 : 0;
+        });
         break;
       
       case 'ArrowUp':
         e.preventDefault();
-        setSelectedIndex(prev => 
-          prev > 0 ? prev - 1 : searchResults.length - 1
-        );
+        setSelectedIndex(prev => {
+          if (prev === -1) return searchResults.length - 1; // Start from last item
+          return prev > 0 ? prev - 1 : searchResults.length - 1;
+        });
         break;
       
       case 'Enter':
         e.preventDefault();
-        const targetIndex = selectedIndex >= 0 ? selectedIndex : 0;
-        if (searchResults[targetIndex]) {
-          handleAddPairing(searchResults[targetIndex]);
+        if (selectedIndex >= 0 && searchResults[selectedIndex]) {
+          handleAddPairing(searchResults[selectedIndex]);
+        } else if (searchResults.length > 0) {
+          // If no item is highlighted, select the first one
+          handleAddPairing(searchResults[0]);
         }
         break;
       
@@ -97,6 +118,24 @@ export function PairingSelector({
     }
   };
 
+  // Highlight matching text in search results
+  const highlightMatch = (text: string, query: string) => {
+    if (!query.trim()) return text;
+    
+    const index = text.toLowerCase().indexOf(query.toLowerCase());
+    if (index === -1) return text;
+    
+    return (
+      <>
+        {text.slice(0, index)}
+        <span className="search-highlight">
+          {text.slice(index, index + query.length)}
+        </span>
+        {text.slice(index + query.length)}
+      </>
+    );
+  };
+
   return (
     <div className="space-y-3">
       {/* Search Input */}
@@ -107,6 +146,9 @@ export function PairingSelector({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onKeyDown={handleKeyDown}
+          onFocus={() => {
+            window.dispatchEvent(new CustomEvent('closeOtherDropdowns', { detail: 'pairing' }));
+          }}
           className="pl-10"
           disabled={selectedFandoms.length === 0}
         />
@@ -114,7 +156,7 @@ export function PairingSelector({
 
       {/* Search Results */}
       {searchResults.length > 0 && (
-        <div ref={resultsRef} className="max-h-40 overflow-y-auto border rounded-md bg-background">
+        <div ref={resultsRef} className="max-h-40 overflow-y-auto border rounded-md bg-white border-[hsl(214.3_31.8%_91.4%)] shadow-lg">
           {searchResults.map((pairing, index) => (
             <button
               key={pairing}
@@ -122,13 +164,13 @@ export function PairingSelector({
               disabled={selectedPairings.includes(pairing)}
               className={`w-full text-left px-3 py-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm border-b last:border-b-0 transition-colors ${
                 index === selectedIndex 
-                  ? 'bg-primary text-primary-foreground' 
+                  ? 'bg-[hsl(262.1_83.3%_57.8%)] text-[hsl(210_20%_98%)]' 
                   : 'hover:bg-muted'
               }`}
             >
-              {pairing}
+              {highlightMatch(pairing, searchQuery)}
               {selectedPairings.includes(pairing) && (
-                <span className={`ml-2 ${index === selectedIndex ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                <span className={`ml-2 ${index === selectedIndex ? 'text-[hsl(210_20%_98%)] opacity-70' : 'text-muted-foreground'}`}>
                   (already selected)
                 </span>
               )}

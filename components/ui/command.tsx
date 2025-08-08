@@ -14,7 +14,7 @@ const Command = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "flex h-full w-full flex-col overflow-hidden rounded-md bg-popover text-popover-foreground",
+      "flex h-full w-full flex-col overflow-hidden rounded-md bg-white text-[hsl(222.2_84%_4.9%)] border border-[hsl(214.3_31.8%_91.4%)]",
       className
     )}
     {...props}

@@ -62,15 +62,17 @@ export function ImprovedFandomSelector({
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setFocusedIndex(prev => 
-          prev < filteredFandoms.length - 1 ? prev + 1 : 0
-        );
+        setFocusedIndex(prev => {
+          if (prev === -1) return 0; // Start from first item
+          return prev < filteredFandoms.length - 1 ? prev + 1 : 0;
+        });
         break;
       case 'ArrowUp':
         e.preventDefault();
-        setFocusedIndex(prev => 
-          prev > 0 ? prev - 1 : filteredFandoms.length - 1
-        );
+        setFocusedIndex(prev => {
+          if (prev === -1) return filteredFandoms.length - 1; // Start from last item
+          return prev > 0 ? prev - 1 : filteredFandoms.length - 1;
+        });
         break;
       case 'Enter':
         e.preventDefault();
@@ -89,18 +91,25 @@ export function ImprovedFandomSelector({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchQuery(value);
-    setIsOpen(value.length > 0);
+    const shouldOpen = value.length > 0;
+    if (shouldOpen) {
+      window.dispatchEvent(new CustomEvent('closeOtherDropdowns', { detail: 'fandom' }));
+    }
+    setIsOpen(shouldOpen);
     setFocusedIndex(-1);
   };
 
   // Handle input focus
   const handleInputFocus = () => {
+    // Always close other dropdowns when focusing this input
+    window.dispatchEvent(new CustomEvent('closeOtherDropdowns', { detail: 'fandom' }));
+    
     if (searchQuery.length > 0) {
       setIsOpen(true);
     }
   };
 
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking outside or other dropdowns open
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (listRef.current && !listRef.current.contains(event.target as Node) &&
@@ -110,8 +119,20 @@ export function ImprovedFandomSelector({
       }
     };
 
+    const handleCloseOthers = (event: CustomEvent) => {
+      if (event.detail !== 'fandom') {
+        setIsOpen(false);
+        setFocusedIndex(-1);
+      }
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    window.addEventListener('closeOtherDropdowns', handleCloseOthers);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('closeOtherDropdowns', handleCloseOthers);
+    };
   }, []);
 
   // Highlight matching text
@@ -152,7 +173,7 @@ export function ImprovedFandomSelector({
 
         {/* Dropdown Results */}
         {isOpen && (
-          <Card className="absolute z-50 w-full mt-1 max-h-[300px] overflow-hidden">
+          <Card className="absolute z-50 w-full mt-1 max-h-[300px] overflow-hidden bg-white border border-[hsl(214.3_31.8%_91.4%)] shadow-lg">
             <CardContent className="p-0">
               {filteredFandoms.length === 0 && searchQuery.length > 0 ? (
                 <div className="p-4 text-center text-muted-foreground">
@@ -172,7 +193,7 @@ export function ImprovedFandomSelector({
                         key={fandom.id}
                         className={cn(
                           "flex items-center justify-between px-4 py-3 cursor-pointer border-b last:border-b-0",
-                          isFocused && "bg-muted",
+                          isFocused && "bg-[hsl(262.1_83.3%_57.8%)] text-[hsl(210_20%_98%)]",
                           isSelected && "bg-blue-50 dark:bg-blue-950/20"
                         )}
                         onClick={() => handleSelectFandom(fandom.name)}

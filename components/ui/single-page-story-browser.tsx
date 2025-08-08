@@ -150,6 +150,7 @@ export function SinglePageStoryBrowser({ onFilterSaved, initialFilter }: SingleP
   const [expandedRelationships, setExpandedRelationships] = useState<Set<string>>(
     shouldUsePersisted ? new Set(persistedState.expandedRelationships || []) : new Set()
   );
+  const [expandedSummaries, setExpandedSummaries] = useState<Set<string>>(new Set());
 
   // Get dynamic pairings organized by selected fandoms
   const fandomPairings = getPairingsForFandoms(filters.fandoms);
@@ -237,6 +238,33 @@ export function SinglePageStoryBrowser({ onFilterSaved, initialFilter }: SingleP
       }
       return newSet;
     });
+  };
+
+  const toggleSummary = (storyId: string) => {
+    setExpandedSummaries(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(storyId)) {
+        newSet.delete(storyId);
+      } else {
+        newSet.add(storyId);
+      }
+      return newSet;
+    });
+  };
+
+  const getSummaryLines = (summary: string) => {
+    if (!summary) return false;
+    
+    // More accurate estimation for when line-clamp-2 will actually truncate
+    // Account for typical word length, spaces, and line breaks
+    const avgCharsPerLine = 60; // More realistic for responsive text
+    const maxCharsForTwoLines = avgCharsPerLine * 2;
+    
+    // Also consider if there are explicit line breaks
+    const lineBreaks = (summary.match(/\n/g) || []).length;
+    
+    // Show expand if: text is long OR has more than 1 line break (would create 2+ visual lines)
+    return summary.length > maxCharsForTwoLines || lineBreaks > 1;
   };
 
   const handleSearch = async () => {
@@ -440,34 +468,41 @@ export function SinglePageStoryBrowser({ onFilterSaved, initialFilter }: SingleP
           selectedFandoms={filters.fandoms}
         />
         
-        {/* Show popular relationships as quick select buttons */}
+        {/* Show popular relationships as quick select buttons - only unselected ones */}
         {fandomPairings.length > 0 && (
           <div className="space-y-3">
-            {fandomPairings.map((fandom) => (
-              <div key={fandom.fandomName} className="space-y-2">
-                <span className="text-xs font-medium text-muted-foreground">
-                  Popular in {fandom.fandomName}:
-                </span>
-                <div className="flex flex-wrap gap-1">
-                  {fandom.pairings.map((pairing) => (
-                    <Button
-                      key={pairing}
-                      variant={filters.characters.includes(pairing) ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => {
-                        const newChars = filters.characters.includes(pairing)
-                          ? filters.characters.filter(c => c !== pairing)
-                          : [...filters.characters, pairing];
-                        handleFilterChange('characters', newChars);
-                      }}
-                      className="text-xs h-7"
-                    >
-                      {pairing}
-                    </Button>
-                  ))}
+            {fandomPairings.map((fandom) => {
+              // Filter out already selected pairings to reduce redundancy
+              const unselectedPairings = fandom.pairings.filter(pairing => 
+                !filters.characters.includes(pairing)
+              );
+              
+              if (unselectedPairings.length === 0) return null;
+              
+              return (
+                <div key={fandom.fandomName} className="space-y-2">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Popular in {fandom.fandomName}:
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {unselectedPairings.map((pairing) => (
+                      <Button
+                        key={pairing}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const newChars = [...filters.characters, pairing];
+                          handleFilterChange('characters', newChars);
+                        }}
+                        className="text-xs h-7"
+                      >
+                        {pairing}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -479,6 +514,11 @@ export function SinglePageStoryBrowser({ onFilterSaved, initialFilter }: SingleP
           <Select 
             value={filters.complete || "any"} 
             onValueChange={(value) => handleFilterChange('complete', value === "any" ? "" : value)}
+            onOpenChange={(isOpen) => {
+              if (isOpen) {
+                window.dispatchEvent(new CustomEvent('closeOtherDropdowns', { detail: 'completion-status' }));
+              }
+            }}
           >
             <SelectTrigger>
               <SelectValue placeholder="Any" />
@@ -498,6 +538,7 @@ export function SinglePageStoryBrowser({ onFilterSaved, initialFilter }: SingleP
             placeholder="e.g. 100"
             value={filters.kudos_from}
             onChange={(e) => handleFilterChange('kudos_from', e.target.value)}
+            onFocus={() => window.dispatchEvent(new CustomEvent('closeOtherDropdowns', { detail: 'kudos-input' }))}
             className="w-full"
           />
         </div>
@@ -510,6 +551,7 @@ export function SinglePageStoryBrowser({ onFilterSaved, initialFilter }: SingleP
               placeholder="Min"
               value={filters.words_from}
               onChange={(e) => handleFilterChange('words_from', e.target.value)}
+              onFocus={() => window.dispatchEvent(new CustomEvent('closeOtherDropdowns', { detail: 'words-min-input' }))}
               className="flex-1"
             />
             <span className="self-center text-xs text-muted-foreground px-1">to</span>
@@ -518,6 +560,7 @@ export function SinglePageStoryBrowser({ onFilterSaved, initialFilter }: SingleP
               placeholder="Max"
               value={filters.words_to}
               onChange={(e) => handleFilterChange('words_to', e.target.value)}
+              onFocus={() => window.dispatchEvent(new CustomEvent('closeOtherDropdowns', { detail: 'words-max-input' }))}
               className="flex-1"
             />
           </div>
@@ -528,6 +571,11 @@ export function SinglePageStoryBrowser({ onFilterSaved, initialFilter }: SingleP
           <Select 
             value={filters.sort_column} 
             onValueChange={(value) => handleFilterChange('sort_column', value)}
+            onOpenChange={(isOpen) => {
+              if (isOpen) {
+                window.dispatchEvent(new CustomEvent('closeOtherDropdowns', { detail: 'sort-by' }));
+              }
+            }}
           >
             <SelectTrigger>
               <SelectValue />
@@ -699,23 +747,41 @@ export function SinglePageStoryBrowser({ onFilterSaved, initialFilter }: SingleP
                             )}
                             
                             {/* Relationship Badges */}
-                            {story.relationships.slice(0, 2).map((relationship, index) => (
-                              <Badge key={`rel-${index}`} variant="outline" className="text-xs">
+                            {(expandedRelationships.has(story.workId) ? story.relationships : story.relationships.slice(0, 2)).map((relationship, index) => (
+                              <Badge key={`rel-${index}`} variant="outline" className="text-xs px-2 py-1">
                                 {cleanRelationshipName(relationship)}
                               </Badge>
                             ))}
                             {story.relationships.length > 2 && (
-                              <Badge variant="outline" className="text-xs">
-                                +{story.relationships.length - 2} more relationships
-                              </Badge>
+                              <button
+                                onClick={() => toggleRelationshipExpansion(story.workId)}
+                                className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded border border-blue-200 hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                              >
+                                {expandedRelationships.has(story.workId) 
+                                  ? 'Show less' 
+                                  : `+${story.relationships.length - 2} more relationships`
+                                }
+                              </button>
                             )}
                           </div>
                         )}
 
                         {/* Summary */}
                         {story.summary && (
-                          <div className="text-sm text-muted-foreground leading-relaxed mb-3 line-clamp-2">
-                            {story.summary.replace(/\n+/g, ' ').trim()}
+                          <div className="mb-3">
+                            <div 
+                              className={`text-sm text-muted-foreground leading-relaxed ${!expandedSummaries.has(story.workId) && getSummaryLines(story.summary) ? 'line-clamp-2' : ''}`}
+                            >
+                              {story.summary.replace(/\n+/g, ' ').trim()}
+                            </div>
+                            {getSummaryLines(story.summary) && (
+                              <button
+                                onClick={() => toggleSummary(story.workId)}
+                                className="text-xs text-purple-600 hover:text-purple-700 mt-2 font-medium hover:underline"
+                              >
+                                {expandedSummaries.has(story.workId) ? 'Show less' : 'Show more'}
+                              </button>
+                            )}
                           </div>
                         )}
 

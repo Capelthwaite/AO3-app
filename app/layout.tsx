@@ -40,7 +40,12 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <a href="#main-content" className="skip-link">
+            Skip to main content
+          </a>
+          <div id="main-content">
+            {children}
+          </div>
           <Toaster />
           <Analytics />
         </ThemeProvider>
