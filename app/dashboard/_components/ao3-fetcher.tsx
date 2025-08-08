@@ -119,6 +119,7 @@ export function AO3Fetcher({ onStorySaved }: AO3FetcherProps = {}) {
   const [storyData, setStoryData] = useState<AO3StoryData | null>(null);
   const [isSaved, setIsSaved] = useState(false);
   const [expandedSummary, setExpandedSummary] = useState(false);
+  const [expandedRelationships, setExpandedRelationships] = useState(false);
 
   const handleFetch = async () => {
     if (!url.trim()) {
@@ -147,6 +148,7 @@ export function AO3Fetcher({ onStorySaved }: AO3FetcherProps = {}) {
         setStoryData(result.data);
         setIsSaved(false); // Reset save status for new story
         setExpandedSummary(false); // Reset summary expansion for new story
+        setExpandedRelationships(false); // Reset relationships expansion for new story
         toast.success("Story information fetched successfully!");
       } else {
         toast.error(result.error || "Failed to fetch story information");
@@ -212,56 +214,59 @@ export function AO3Fetcher({ onStorySaved }: AO3FetcherProps = {}) {
 
   return (
     <div className="space-y-6">
-      <div className="border rounded-lg p-6 bg-card border-border">
-        <h2 className="text-lg font-semibold text-card-foreground mb-2">Add New Story</h2>
-        <p className="text-sm text-muted-foreground mb-4">Enter an AO3 work ID or paste a story URL</p>
-        
-        <div className="flex gap-3 w-full">
-          <Input
-            placeholder="Work ID or AO3 URL..."
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                handleFetch();
-              }
-            }}
-            className="flex-1"
-          />
-          <Button onClick={handleFetch} disabled={loading} size="sm" className="shrink-0">
-            {loading ? "Loading..." : "Add Story"}
-          </Button>
-        </div>
-      </div>
+      <Card className="card-enhanced">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-xl">Add New Story</CardTitle>
+          <CardDescription>Enter an AO3 work ID or paste a story URL</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-3 w-full">
+            <Input
+              placeholder="Work ID or AO3 URL..."
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleFetch();
+                }
+              }}
+              className="flex-1 h-10"
+            />
+            <Button onClick={handleFetch} disabled={loading} size="default" variant="default" className="shrink-0 px-6">
+              {loading ? "Loading..." : "Add Story"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {storyData && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Story Information</CardTitle>
-            <CardDescription>
-              Fetched from AO3 • {isSaved ? "Saved to your library" : "Ready to save to your library"}
+        <Card className="card-enhanced">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl">Story Information</CardTitle>
+            <CardDescription className="text-base">
+              Fetched from AO3 • {isSaved ? "✅ Saved to your library" : "Ready to save to your library"}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="flex justify-between items-start">
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-lg">{storyData.title}</h3>
-                  <p className="text-sm text-muted-foreground">by {storyData.author}</p>
+                  <h3 className="font-semibold text-lg leading-tight mb-1">{storyData.title}</h3>
+                  <p className="text-sm text-muted-foreground font-medium">by {storyData.author}</p>
                 </div>
               </div>
 
               {storyData.summary && (
-                <div>
+                <div className="bg-muted/30 rounded-lg p-3 border">
                   <div 
-                    className={`text-sm text-muted-foreground leading-relaxed ${!expandedSummary && getSummaryLines(storyData.summary) ? 'line-clamp-2' : ''}`}
+                    className={`text-sm leading-relaxed ${!expandedSummary && getSummaryLines(storyData.summary) ? 'line-clamp-2' : ''}`}
                   >
                     {storyData.summary.replace(/\n+/g, ' ').trim()}
                   </div>
                   {getSummaryLines(storyData.summary) && (
                     <button
                       onClick={() => setExpandedSummary(!expandedSummary)}
-                      className="text-xs text-blue-600 hover:text-blue-800 mt-1"
+                      className="text-xs text-purple-600 hover:text-purple-700 mt-2 font-medium hover:underline"
                     >
                       {expandedSummary ? 'Show less' : 'Show more'}
                     </button>
@@ -271,51 +276,58 @@ export function AO3Fetcher({ onStorySaved }: AO3FetcherProps = {}) {
 
               {/* Fandom and Relationship Badges */}
               {(storyData.fandom.length > 0 || storyData.relationships.length > 0) && (
-                <div className="flex flex-wrap gap-2 mb-3">
+                <div className="flex flex-wrap gap-2">
                   {/* Fandom Badges */}
                   {storyData.fandom.slice(0, 2).map((fandom, index) => (
-                    <Badge key={`fandom-${index}`} variant="secondary" className="text-xs">
+                    <Badge key={`fandom-${index}`} variant="secondary" className="text-xs px-3 py-1 font-medium bg-muted/50">
                       {fandom}
                     </Badge>
                   ))}
                   {storyData.fandom.length > 2 && (
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-xs px-3 py-1 font-medium">
                       +{storyData.fandom.length - 2} more fandoms
                     </Badge>
                   )}
                   
                   {/* Relationship Badges */}
-                  {storyData.relationships.slice(0, 2).map((relationship, index) => (
-                    <Badge key={`rel-${index}`} variant="outline" className="text-xs">
+                  {(expandedRelationships ? storyData.relationships : storyData.relationships.slice(0, 2)).map((relationship, index) => (
+                    <Badge key={`rel-${index}`} variant="outline" className="text-xs px-3 py-1 font-medium bg-background">
                       {cleanRelationshipName(relationship)}
                     </Badge>
                   ))}
                   {storyData.relationships.length > 2 && (
-                    <Badge variant="outline" className="text-xs">
-                      +{storyData.relationships.length - 2} more relationships
-                    </Badge>
+                    <button
+                      onClick={() => setExpandedRelationships(!expandedRelationships)}
+                      className="text-xs font-medium px-3 py-1 rounded-md border border-purple-200 text-purple-600 hover:border-purple-300 hover:bg-purple-50 transition-colors"
+                    >
+                      {expandedRelationships 
+                        ? 'Show less' 
+                        : `+${storyData.relationships.length - 2} more relationships`
+                      }
+                    </button>
                   )}
                 </div>
               )}
 
-              <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                <span>{storyData.wordCount.toLocaleString()} words</span>
-                <span>{storyData.chapters.current.toLocaleString()}/{storyData.chapters.total?.toLocaleString() || "?"}</span>
-                <span>{storyData.isComplete ? "Complete" : "In Progress"}</span>
-                <span>👍 {storyData.kudos.toLocaleString()}</span>
-                <span>Updated {formatUpdatedDate(storyData.lastUpdatedDate)}</span>
+              <div className="flex flex-wrap gap-4 text-xs text-muted-foreground pt-3 border-t border-border">
+                <span className="font-medium">{storyData.wordCount.toLocaleString()} words</span>
+                <span className="font-medium">{storyData.chapters.current.toLocaleString()}/{storyData.chapters.total?.toLocaleString() || "?"} chapters</span>
+                <span className="font-medium">{storyData.isComplete ? "✅ Complete" : "⏳ In Progress"}</span>
+                <span className="font-medium">👍 {storyData.kudos.toLocaleString()}</span>
+                <span className="font-medium">Updated {formatUpdatedDate(storyData.lastUpdatedDate)}</span>
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex gap-3 pt-2">
                 <Button 
                   onClick={handleSave} 
                   disabled={saving || isSaved}
-                  className={isSaved ? "bg-green-600 hover:bg-green-700" : ""}
-                  size="sm"
+                  variant={isSaved ? "secondary" : "default"}
+                  className={isSaved ? "bg-green-600 hover:bg-green-700 text-white" : ""}
+                  size="default"
                 >
                   {saving ? "Saving..." : isSaved ? "✓ Saved" : "Save to Library"}
                 </Button>
-                <Button variant="outline" size="sm" asChild>
+                <Button variant="outline" size="default" className="shadow-sm" asChild>
                   <a href={storyData.url} target="_blank" rel="noopener noreferrer">
                     Read on AO3 ↗
                   </a>

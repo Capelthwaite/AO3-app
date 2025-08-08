@@ -14,7 +14,7 @@ export function DashboardContent() {
   };
 
   return (
-    <div className="grid gap-6">
+    <div className="space-y-12">
       {/* AO3 Story Fetcher */}
       <AO3Fetcher onStorySaved={handleStorySaved} />
 

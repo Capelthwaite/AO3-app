@@ -38,42 +38,57 @@ export function StatsCards() {
   }, []);
 
   return (
-    <div className="grid md:grid-cols-3 gap-4">
-      <Card>
+    <div className="grid md:grid-cols-3 gap-6">
+      <Card className="card-enhanced">
         <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Stories Saved</CardTitle>
+          <CardTitle className="text-base font-medium text-muted-foreground flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
+              📚
+            </div>
+            Stories Saved
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">
+          <div className="text-2xl font-bold tracking-tight">
             {loading ? "..." : stats.totalStories.toLocaleString()}
           </div>
-          <p className="text-xs text-muted-foreground">
-            {stats.totalStories === 0 ? "No stories yet" : "Stories in your library"}
+          <p className="text-xs text-muted-foreground mt-1">
+            {stats.totalStories === 0 ? "No stories yet" : "Total in your library"}
           </p>
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="card-enhanced">
         <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Currently Reading</CardTitle>
+          <CardTitle className="text-base font-medium text-muted-foreground flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center">
+              📖
+            </div>
+            Currently Reading
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">
+          <div className="text-2xl font-bold tracking-tight text-purple-600">
             {loading ? "..." : stats.currentlyReading.toLocaleString()}
           </div>
-          <p className="text-xs text-muted-foreground">Stories in progress</p>
+          <p className="text-xs text-muted-foreground mt-1">Stories in progress</p>
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="card-enhanced">
         <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Updates Available</CardTitle>
+          <CardTitle className="text-base font-medium text-muted-foreground flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
+              ✨
+            </div>
+            Updates Available
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">
+          <div className="text-2xl font-bold tracking-tight text-emerald-600">
             {loading ? "..." : stats.updatesAvailable.toLocaleString()}
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground mt-1">
             {stats.updatesAvailable === 1 ? "New chapter to read" : "New chapters to read"}
           </p>
         </CardContent>

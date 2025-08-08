@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 // Helper function to format dates consistently as DD Mon YYYY with enhanced parsing
 function formatDate(dateString: string | null | undefined): string {
@@ -164,10 +165,12 @@ export function StoryLibrary() {
   const [stories, setStories] = useState<SavedStory[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedSummaries, setExpandedSummaries] = useState<Set<string>>(new Set());
+  const [expandedRelationships, setExpandedRelationships] = useState<Set<string>>(new Set());
   const [readingStatusFilter, setReadingStatusFilter] = useState<ReadingStatusFilter>('all');
   const [completionStatusFilter, setCompletionStatusFilter] = useState<CompletionStatusFilter>('all');
   const [sortOption, setSortOption] = useState<SortOption>('unread-first');
   const [refreshing, setRefreshing] = useState(false);
+  const [deletingStory, setDeletingStory] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchStories() {
@@ -197,6 +200,16 @@ export function StoryLibrary() {
       newExpanded.add(storyId);
     }
     setExpandedSummaries(newExpanded);
+  };
+
+  const toggleRelationships = (storyId: string) => {
+    const newExpanded = new Set(expandedRelationships);
+    if (newExpanded.has(storyId)) {
+      newExpanded.delete(storyId);
+    } else {
+      newExpanded.add(storyId);
+    }
+    setExpandedRelationships(newExpanded);
   };
 
   const getSummaryLines = (summary: string) => {
@@ -245,6 +258,36 @@ export function StoryLibrary() {
       );
     } catch (error) {
       console.error('Error marking story as read:', error);
+    }
+  };
+
+  const handleDeleteStory = async (storyId: string, storyTitle: string) => {
+    // Ask for confirmation
+    const confirmed = window.confirm(`Are you sure you want to remove "${storyTitle}" from your library? This action cannot be undone.`);
+    
+    if (!confirmed) return;
+
+    setDeletingStory(storyId);
+
+    try {
+      const response = await fetch(`/api/stories?storyId=${storyId}`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Remove the story from local state
+        setStories(prev => prev.filter(story => story.id !== storyId));
+        toast.success('Story removed from library');
+      } else {
+        throw new Error(result.error || 'Failed to delete story');
+      }
+    } catch (error) {
+      console.error('Error deleting story:', error);
+      toast.error('Failed to remove story from library');
+    } finally {
+      setDeletingStory(null);
     }
   };
 
@@ -429,83 +472,104 @@ export function StoryLibrary() {
         ) : (
           filteredAndSortedStories.map((story) => {
             const isExpanded = expandedSummaries.has(story.id);
+            const isRelationshipsExpanded = expandedRelationships.has(story.id);
             const needsExpansion = story.summary && getSummaryLines(story.summary);
             
             return (
-              <div key={story.id} className={`p-4 rounded-lg border transition-all ${story.readingProgress.hasUnreadUpdates ? 'bg-card border-emerald-200 dark:border-emerald-800 shadow-md ring-1 ring-emerald-100 dark:ring-emerald-900/20' : 'bg-card border-gray-200 dark:border-gray-800 shadow-sm'}`}>
-                <div className="flex justify-between items-start mb-2">
+              <div key={story.id} className={`card-enhanced p-6 ${story.readingProgress.hasUnreadUpdates ? 'ring-2 ring-emerald-200 ring-offset-2' : ''}`}>
+                <div className="flex justify-between items-start mb-4">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-base truncate">{story.title}</h3>
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="font-semibold text-lg leading-tight">{story.title}</h3>
                       {story.readingProgress.hasUnreadUpdates && (
-                        <Badge className="text-xs bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-emerald-300">
-                          {story.readingProgress.newChaptersSinceLastRead} new ✨
+                        <Badge className="text-xs font-medium px-2 py-1 bg-green-100 text-green-800 border-green-300">
+                          {story.readingProgress.newChaptersSinceLastRead} new
                         </Badge>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground">by {story.author}</p>
+                    <p className="text-sm text-muted-foreground font-medium">by {story.author}</p>
                     
-                    {/* Reading Progress Indicator */}
+                    {/* Reading Progress Indicator - More subtle */}
                     {story.readingProgress.hasUnreadUpdates && (
-                      <div className="text-xs text-blue-600 font-medium mt-1">
-                        📖 {story.readingProgress.newChaptersSinceLastRead} new chapter{story.readingProgress.newChaptersSinceLastRead > 1 ? 's' : ''} available
-                        {story.readingProgress.newChaptersSinceLastRead > 1 && (
-                          <span className="text-muted-foreground ml-1">
-                            (chapters {(story.readingProgress.chaptersReadWhenLastOpened + 1).toLocaleString()}-{story.currentChapters.toLocaleString()})
+                      <div className="text-xs font-medium mt-2 px-2 py-1 bg-emerald-50/50 rounded border-l-2 border-l-emerald-400">
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+                          <span className="text-emerald-700 text-xs">
+                            {story.readingProgress.newChaptersSinceLastRead > 1 ? 
+                              `Chapters ${(story.readingProgress.chaptersReadWhenLastOpened + 1).toLocaleString()}-${story.currentChapters.toLocaleString()}` :
+                              'New chapter available'
+                            }
                           </span>
-                        )}
+                        </div>
                       </div>
                     )}
                   </div>
-                  <div className="ml-3 shrink-0 flex items-center gap-3">
-                    <span className="text-xs text-muted-foreground">
+                  <div className="ml-6 shrink-0 flex flex-col items-end gap-2">
+                    <span className="text-xs text-muted-foreground font-medium">
                       Updated {formatDate(story.lastUpdatedDate)}
                     </span>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        handleReadOnAO3(story.workId);
-                        // Open the link after marking as read
-                        window.open(story.url, '_blank', 'noopener,noreferrer');
-                      }}
-                    >
-                      Read on AO3 ↗
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleDeleteStory(story.id, story.title)}
+                        disabled={deletingStory === story.id}
+                        className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+                      >
+                        {deletingStory === story.id ? 'Removing...' : '🗑'}
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          handleReadOnAO3(story.workId);
+                          // Open the link after marking as read
+                          window.open(story.url, '_blank', 'noopener,noreferrer');
+                        }}
+                      >
+                        Read on AO3 ↗
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
                 {/* Fandom and Relationship Badges */}
                 {(story.fandom.length > 0 || story.relationships.length > 0) && (
-                  <div className="flex flex-wrap gap-2 mb-2">
+                  <div className="flex flex-wrap gap-2 mb-4">
                     {/* Fandom Badges */}
                     {story.fandom.slice(0, 2).map((fandom, index) => (
-                      <Badge key={`fandom-${index}`} variant="secondary" className="text-xs">
+                      <Badge key={`fandom-${index}`} variant="secondary" className="text-xs px-3 py-1 font-medium bg-muted/50">
                         {fandom}
                       </Badge>
                     ))}
                     {story.fandom.length > 2 && (
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="outline" className="text-xs px-3 py-1 font-medium">
                         +{story.fandom.length - 2} more fandoms
                       </Badge>
                     )}
                     
                     {/* Relationship Badges */}
-                    {story.relationships.slice(0, 2).map((relationship, index) => (
-                      <Badge key={`rel-${index}`} variant="outline" className="text-xs">
+                    {(isRelationshipsExpanded ? story.relationships : story.relationships.slice(0, 2)).map((relationship, index) => (
+                      <Badge key={`rel-${index}`} variant="outline" className="text-xs px-3 py-1 font-medium bg-background">
                         {cleanRelationshipName(relationship)}
                       </Badge>
                     ))}
                     {story.relationships.length > 2 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{story.relationships.length - 2} more relationships
-                      </Badge>
+                      <button
+                        onClick={() => toggleRelationships(story.id)}
+                        className="text-xs font-medium px-3 py-1 rounded-md border border-purple-200 text-purple-600 hover:border-purple-300 hover:bg-purple-50 transition-colors"
+                      >
+                        {isRelationshipsExpanded 
+                          ? 'Show less' 
+                          : `+${story.relationships.length - 2} more relationships`
+                        }
+                      </button>
                     )}
                   </div>
                 )}
 
                 {story.summary && (
-                  <div className="mb-2">
+                  <div className="mb-4">
                     <div 
                       className={`text-sm text-muted-foreground leading-relaxed ${!isExpanded && needsExpansion ? 'line-clamp-2' : ''}`}
                     >
@@ -514,7 +578,7 @@ export function StoryLibrary() {
                     {needsExpansion && (
                       <button
                         onClick={() => toggleSummary(story.id)}
-                        className="text-xs text-blue-600 hover:text-blue-800 mt-1"
+                        className="text-xs text-purple-600 hover:text-purple-700 mt-2 font-medium hover:underline"
                       >
                         {isExpanded ? 'Show less' : 'Show more'}
                       </button>
@@ -522,19 +586,19 @@ export function StoryLibrary() {
                   </div>
                 )}
 
-                <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                  <span>{story.wordCount.toLocaleString()} words</span>
+                <div className="flex flex-wrap gap-4 text-xs text-muted-foreground pt-2 border-t border-border">
+                  <span className="font-medium">{story.wordCount.toLocaleString()} words</span>
                   
                   {/* Chapter Progress - Show current/total chapters */}
-                  <span className={story.readingProgress.hasUnreadUpdates ? 'font-medium text-blue-600' : ''}>
+                  <span className={story.readingProgress.hasUnreadUpdates ? 'font-semibold text-blue-600' : 'font-medium'}>
                     {story.currentChapters.toLocaleString()}/{story.totalChapters?.toLocaleString() || "?"} chapters
                   </span>
                   
-                  <span>{story.isComplete ? "Complete" : "In Progress"}</span>
-                  <span>👍 {story.kudos.toLocaleString()}</span>
+                  <span className="font-medium">{story.isComplete ? "✅ Complete" : "⏳ In Progress"}</span>
+                  <span className="font-medium">👍 {story.kudos.toLocaleString()}</span>
                   
                   {story.readingProgress.lastOpenedAt && (
-                    <span>
+                    <span className="font-medium">
                       Last read {formatDate(story.readingProgress.lastOpenedAt)}
                     </span>
                   )}

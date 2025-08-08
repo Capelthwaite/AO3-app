@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/db/drizzle';
 import { userStories } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
   try {
@@ -73,6 +73,57 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error fetching user stories:', error);
+    
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error occurred' 
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    // Get authenticated user
+    const session = await auth.api.getSession({
+      headers: request.headers,
+    });
+
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const userId = session.user.id;
+    const { searchParams } = new URL(request.url);
+    const storyId = searchParams.get('storyId');
+
+    if (!storyId) {
+      return NextResponse.json(
+        { error: 'Story ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Delete the story from user's library
+    const result = await db
+      .delete(userStories)
+      .where(and(
+        eq(userStories.userId, userId),
+        eq(userStories.id, storyId)
+      ));
+
+    return NextResponse.json({
+      success: true,
+      message: 'Story removed from library successfully'
+    });
+
+  } catch (error) {
+    console.error('Error deleting story:', error);
     
     return NextResponse.json(
       { 
