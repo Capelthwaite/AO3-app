@@ -10,11 +10,12 @@ import {
 } from "@/components/ui/card";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { toast } from "sonner";
 
-function SignInContent() {
+function SignUpContent() {
   const [loading, setLoading] = useState(false);
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
@@ -24,10 +25,10 @@ function SignInContent() {
       <Card className="max-w-md w-full">
         <CardHeader>
           <CardTitle className="text-lg md:text-xl">
-            Welcome to Nextjs Starter Kit
+            Join AO3 Companion
           </CardTitle>
           <CardDescription className="text-xs md:text-sm">
-            Use your google account to login to your account
+            Use your Google account to create your account and start organizing your fanfiction reading
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -56,17 +57,18 @@ function SignInContent() {
                         onResponse: () => {
                           setLoading(false);
                         },
-                        onError: (error) => {
+                        onError: (ctx) => {
                           setLoading(false);
-                          console.error("Sign-in error:", error);
-                          // Consider showing user-friendly error message
+                          console.error("Sign-up failed:", ctx.error);
+                          toast.error("Sign-up failed. Please try again.", {
+                            duration: 5000,
+                          });
                         },
                       },
                     );
                   } catch (error) {
                     setLoading(false);
-                    console.error("Sign-in failed:", error);
-                    // Handle authentication errors appropriately
+                    console.error("Authentication error:", error);
                     toast.error("Oops, something went wrong", {
                       duration: 5000,
                     });
@@ -96,17 +98,40 @@ function SignInContent() {
                     d="M130.55 50.479c24.514 0 41.05 10.589 50.479 19.438l36.844-35.974C195.245 12.91 165.798 0 130.55 0C79.49 0 35.393 29.301 13.925 71.947l42.211 32.783c10.59-31.477 39.891-54.251 74.414-54.251"
                   ></path>
                 </svg>
-                Login with Google
+                {loading ? "Creating account..." : "Continue with Google"}
               </Button>
             </div>
           </div>
+          
+          <div className="mt-4 text-center text-sm">
+            Already have an account?{" "}
+            <Link href="/sign-in" className="underline">
+              Sign in
+            </Link>
+          </div>
         </CardContent>
       </Card>
+      <p className="mt-6 text-xs text-center text-gray-500 dark:text-gray-400 max-w-md">
+        By signing up, you agree to our{" "}
+        <Link
+          href="/terms-of-service"
+          className="underline hover:text-gray-700 dark:hover:text-gray-300"
+        >
+          Terms of Service
+        </Link>{" "}
+        and{" "}
+        <Link
+          href="/privacy-policy"
+          className="underline hover:text-gray-700 dark:hover:text-gray-300"
+        >
+          Privacy Policy
+        </Link>
+      </p>
     </div>
   );
 }
 
-export default function SignIn() {
+export default function SignUp() {
   return (
     <Suspense
       fallback={
@@ -115,7 +140,7 @@ export default function SignIn() {
         </div>
       }
     >
-      <SignInContent />
+      <SignUpContent />
     </Suspense>
   );
 }

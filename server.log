@@ -1,0 +1,104 @@
+
+> apple-pass@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.3.1
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.68.52:3000
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 1633ms
+ ○ Compiling / ...
+ ✓ Compiled / in 1872ms (822 modules)
+ GET / 200 in 2090ms
+ GET / 200 in 130ms
+ ✓ Compiled /favicon.ico in 252ms (508 modules)
+ GET /favicon.ico 200 in 444ms
+ ✓ Compiled /middleware in 215ms (164 modules)
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 4.6s (3798 modules)
+ GET /dashboard 200 in 6518ms
+ GET /dashboard 200 in 1314ms
+ ○ Compiling /api/auth/[...all] ...
+ ✓ Compiled /api/auth/[...all] in 2.6s (3793 modules)
+ GET /api/stories 200 in 3793ms
+ GET /api/stories/stats 200 in 3871ms
+ GET /api/auth/get-session 200 in 4554ms
+ GET /api/auth/get-session 200 in 88ms
+ ○ Compiling /dashboard/library ...
+ ✓ Compiled /dashboard/library in 529ms (3799 modules)
+ GET /dashboard/library 200 in 1038ms
+ GET /api/stories 200 in 180ms
+ GET /dashboard/library 200 in 353ms
+ ○ Compiling /dashboard/browse ...
+ ✓ Compiled /dashboard/browse in 1040ms (3851 modules)
+ GET /dashboard/browse 200 in 1314ms
+ ✓ Compiled /api/filter-sets in 467ms (3855 modules)
+ GET /api/filter-sets 200 in 779ms
+ ○ Compiling /api/ao3/search ...
+ ✓ Compiled /api/ao3/search in 1062ms (4089 modules)
+Search filters: {
+  query: undefined,
+  fandom: [ 'Arcane: League of Legends (Cartoon 2021)' ],
+  characters: [ 'Caitlyn/Vi' ],
+  complete: '',
+  words_from: undefined,
+  words_to: undefined,
+  kudos_from: '1000',
+  sort_column: 'revised_at',
+  page: '1'
+}
+Adding fandom tag: "Arcane: League of Legends (Cartoon 2021)"
+Searching AO3: https://archiveofourown.org/works?work_search%5Bquery%5D=kudos+%3E+999&tag_id=Arcane%3A+League+of+Legends+%28Cartoon+2021%29&tag_id=Caitlyn%2FVi&work_search%5Bsort_column%5D=revised_at&page=1&commit=Sort+and+Filter
+Work 46604803 (Arcane : The Enforcer’s Diaries): Summary found = true, Length = 1166
+Work 68842431 (The Great Reconstruction): Summary found = true, Length = 601
+Work 62701708 (Across the river): Summary found = true, Length = 886
+Work 64232674 (Hyacinth): Summary found = true, Length = 227
+Work 64231885 (Oleander): Summary found = true, Length = 380
+Work 68861031 (Sweet n' Low): Summary found = true, Length = 224
+Work 68520071 (Sweet Disposition): Summary found = true, Length = 544
+Work 68861776 (Through the Frozen Gardens): Summary found = true, Length = 428
+Work 68861046 (7PM in Central Manchester): Summary found = true, Length = 461
+Work 64934005 (Shades Behind the Counter): Summary found = true, Length = 835
+Work 65013706 (You'll always be my star): Summary found = false, Length = 0
+  Available summary-related elements:
+    .summary blockquote.userstuff: 0
+    .summary blockquote: 0
+    .summary .userstuff: 0
+    .summary: 0
+    Full .summary HTML: null
+Work 63936157 (No Attachment): Summary found = true, Length = 598
+Work 62619469 (The Child of the Lanes): Summary found = true, Length = 344
+Work 68685781 (Broken pieces shine): Summary found = true, Length = 202
+Work 68853591 (When There Was Me and You): Summary found = true, Length = 543
+Work 68815301 (Between the Lines): Summary found = true, Length = 281
+Work 68131241 (Just married and living life): Summary found = true, Length = 126
+Work 67330897 (You’re Allowed to Stay): Summary found = true, Length = 756
+Work 68595276 (My little Omega): Summary found = true, Length = 142
+Work 66333160 (Unjinxed): Summary found = true, Length = 230
+Filtering 20 stories for relationships: Caitlyn/Vi
+✓ Story "Arcane : The Enforcer’s Diaries" matched relationship: [Caitlyn/Vi (League of Legends), Caitlyn (League of Legends)/Cassandra Kiramman]
+✓ Story "The Great Reconstruction" matched relationship: [Ekko/Jinx (League of Legends), Ekko & Jinx (League of Legends), Luxanna "Lux" Crownguard/Ezreal, Luxanna "Lux" Crownguard & Ekko & Ezreal & Jinx, Jinx & Vi (League of Legends), Luxanna "Lux" Crownguard & Jinx, Ekko & Ezreal (League of Legends), Caitlyn/Vi (League of Legends), Jinx (League of Legends) & Silco (Arcane: League of Legends), Benzo (Arcane: League of Legends) & Ekko (League of Legends)]
+✓ Story "Across the river" matched relationship: [Caitlyn/Vi (League of Legends)]
+✓ Story "Hyacinth" matched relationship: [Caitlyn/Vi (League of Legends), Jinx & Vi (League of Legends), Isha (Arcane: League of Legends) & Jinx (League of Legends), Caitlyn & Jayce (League of Legends)]
+✓ Story "Oleander" matched relationship: [Caitlyn/Vi (League of Legends), Jayce/Viktor (League of Legends), Caitlyn & Jayce (League of Legends)]
+✓ Story "Sweet n' Low" matched relationship: [Caitlyn/Vi (League of Legends)]
+✓ Story "Sweet Disposition" matched relationship: [Caitlyn/Vi (League of Legends)]
+✓ Story "Through the Frozen Gardens" matched relationship: [Caitlyn/Vi (League of Legends), Caitlyn & Vi (League of Legends)]
+✓ Story "7PM in Central Manchester" matched relationship: [Caitlyn/Vi (League of Legends)]
+✓ Story "Shades Behind the Counter" matched relationship: [Caitlyn/Vi (League of Legends), Ekko/Jinx (League of Legends), Jayce (League of Legends)/Mel Medarda]
+✓ Story "You'll always be my star" matched relationship: [Caitlyn/Vi (League of Legends)]
+✓ Story "No Attachment" matched relationship: [Jayce/Viktor (League of Legends), Caitlyn/Vi (League of Legends), Sky/Steb (Arcane: League of Legends), Marcus/Ximena (Arcane: League of Legends)]
+✓ Story "The Child of the Lanes" matched relationship: [Silco (Arcane: League of Legends)/Vander (League of Legends), Jayce/Viktor (League of Legends), Caitlyn/Vi (League of Legends), Ekko/Jinx (League of Legends), Mel Medarda/Sevika]
+✓ Story "Broken pieces shine" matched relationship: [Caitlyn/Vi (League of Legends)]
+✓ Story "When There Was Me and You" matched relationship: [Caitlyn/Vi (League of Legends), Vi (League of Legends)/Allison Reynolds (All For The Game)]
+✓ Story "Between the Lines" matched relationship: [Caitlyn/Vi (League of Legends), Caitlyn & Vi (League of Legends)]
+✓ Story "Just married and living life" matched relationship: [Caitlyn/Vi (League of Legends)]
+✓ Story "You’re Allowed to Stay" matched relationship: [Ekko/Jinx (League of Legends), Jinx & Vi (League of Legends), Jinx & Vander (League of Legends), Caitlyn/Vi (League of Legends), Benzo (Arcane: League of Legends) & Vander (League of Legends), Claggor (Arcane) & Jinx (League of Legends) & Mylo (Arcane) & Vi (League of Legends), Vander & Vi (League of Legends), Jinx (League of Legends) & Silco (Arcane: League of Legends), Silco (Arcane: League of Legends)/Vander (League of Legends)]
+✓ Story "My little Omega" matched relationship: [Caitlyn/Vi (League of Legends)]
+✓ Story "Unjinxed" matched relationship: [Caitlyn/Vi (League of Legends), Caitlyn & Vi (League of Legends), Caitlyn/Jinx (League of Legends), Caitlyn & Jinx (League of Legends), Jinx & Vi (League of Legends), Jinx/Vi (League of Legends), Caitlyn/Jinx/Vi (League of Legends)]
+Filtered to 20 stories
+ GET /api/ao3/search?fandoms=Arcane%3A+League+of+Legends+%28Cartoon+2021%29&characters=Caitlyn%2FVi&kudos_from=1000&sort_column=revised_at 200 in 10537ms
+ ✓ Compiled in 520ms (1170 modules)
+ GET /dashboard/browse 200 in 260ms

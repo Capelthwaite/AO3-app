@@ -36,9 +36,8 @@ export default function RootLayout({
       <body className={`font-[-apple-system,BlinkMacSystemFont]antialiased`}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="light"
+          defaultTheme="system"
           enableSystem
-          forcedTheme="light"
           disableTransitionOnChange
         >
           {children}

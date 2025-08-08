@@ -10,6 +10,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import UserProfile from "@/components/user-profile";
+import { ThemeToggle } from "@/components/theme-toggle";
 import {
   Brush,
   HomeIcon,
@@ -73,6 +74,7 @@ export default function DashboardTopNav({ children }: { children: ReactNode }) {
           </SheetContent>
         </Dialog>
         <div className="flex justify-center items-center gap-2 ml-auto">
+          <ThemeToggle />
           <UserProfile mini={true} />
         </div>
       </header>

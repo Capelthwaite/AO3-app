@@ -25,10 +25,10 @@ function SignInContent() {
       <Card className="max-w-md w-full">
         <CardHeader>
           <CardTitle className="text-lg md:text-xl">
-            Welcome to Nextjs Starter Kit
+            Welcome to AO3 Companion
           </CardTitle>
           <CardDescription className="text-xs md:text-sm">
-            Use your google account to login to your account
+            Use your Google account to sign in to your account
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -59,15 +59,16 @@ function SignInContent() {
                         },
                         onError: (ctx) => {
                           setLoading(false);
-                          // Add user-friendly error handling here
                           console.error("Sign-in failed:", ctx.error);
+                          toast.error("Sign-in failed. Please try again.", {
+                            duration: 5000,
+                          });
                         },
                       },
                     );
                   } catch (error) {
                     setLoading(false);
                     console.error("Authentication error:", error);
-                    // Consider adding toast notification for user feedback
                     toast.error("Oops, something went wrong", {
                       duration: 5000,
                     });
@@ -97,7 +98,7 @@ function SignInContent() {
                     d="M130.55 50.479c24.514 0 41.05 10.589 50.479 19.438l36.844-35.974C195.245 12.91 165.798 0 130.55 0C79.49 0 35.393 29.301 13.925 71.947l42.211 32.783c10.59-31.477 39.891-54.251 74.414-54.251"
                   ></path>
                 </svg>
-                Login with Google
+                {loading ? "Signing in..." : "Continue with Google"}
               </Button>
             </div>
           </div>

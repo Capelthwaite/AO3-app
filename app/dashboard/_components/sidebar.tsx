@@ -3,12 +3,11 @@
 import UserProfile from "@/components/user-profile";
 import clsx from "clsx";
 import {
-  Banknote,
+  BookOpen,
   HomeIcon,
   LucideIcon,
-  MessageCircleIcon,
+  Search,
   Settings,
-  Upload,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -21,24 +20,19 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   {
-    label: "Overview",
+    label: "Dashboard",
     href: "/dashboard",
     icon: HomeIcon,
   },
   {
-    label: "Chat",
-    href: "/dashboard/chat",
-    icon: MessageCircleIcon,
+    label: "Browse Stories",
+    href: "/dashboard/browse",
+    icon: Search,
   },
   {
-    label: "Upload",
-    href: "/dashboard/upload",
-    icon: Upload,
-  },
-  {
-    label: "Payment Gated",
-    href: "/dashboard/payment",
-    icon: Banknote,
+    label: "My Library",
+    href: "/dashboard/library",
+    icon: BookOpen,
   },
 ];
 
@@ -55,7 +49,7 @@ export default function DashboardSideBar() {
             className="flex items-center font-semibold hover:cursor-pointer"
             href="/"
           >
-            <span>Nextjs Starter Kit</span>
+            <span>AO3 Companion</span>
           </Link>
         </div>
 

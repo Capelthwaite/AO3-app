@@ -1,0 +1,978 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ImprovedFandomSelector } from "@/components/ui/improved-fandom-selector";
+import { PairingSelector } from "@/components/ui/pairing-selector";
+import { getPairingsForFandoms } from "@/lib/fandom-characters";
+import { toast } from "sonner";
+import { 
+  Filter, 
+  Heart, 
+  RefreshCw,
+  Save,
+  Search
+} from "lucide-react";
+import { SearchFilters } from "@/types";
+
+interface AO3Story {
+  workId: string;
+  title: string;
+  author: string;
+  summary: string;
+  wordCount: number;
+  chapters: {
+    current: number;
+    total: number | null;
+  };
+  isComplete: boolean;
+  fandom: string[];
+  relationships: string[];
+  characters: string[];
+  additionalTags: string[];
+  publishedDate: string;
+  lastUpdatedDate: string;
+  kudos: number;
+  bookmarks: number;
+  hits: number;
+  url: string;
+}
+
+interface SearchResults {
+  stories: AO3Story[];
+  totalPages: number;
+  currentPage: number;
+}
+
+// Helper function to clean up relationship names by removing full character names
+function cleanRelationshipName(relationship: string): string {
+  return relationship
+    // Remove common full names and keep first names only
+    .replace(/\b\w+\s+Danvers/g, match => {
+      const firstName = match.split(' ')[0];
+      return ['Kara', 'Alex'].includes(firstName) ? firstName : match;
+    })
+    .replace(/\bLena Luthor\b/g, 'Lena')
+    .replace(/\bMaggie Sawyer\b/g, 'Maggie')
+    .replace(/\bSamantha "Sam" Arias\b/g, 'Sam')
+    .replace(/\bCat Grant\b/g, 'Cat')
+    .replace(/\bWinn Schott Jr\./g, 'Winn')
+    .replace(/\bJames "Jimmy" Olsen\b/g, 'James')
+    .replace(/\bMon-El\b/g, 'Mon-El')
+    .replace(/\bClark Kent\b/g, 'Clark')
+    .replace(/\bLois Lane\b/g, 'Lois')
+    // Handle Arcane characters
+    .replace(/\bJinx\b \([^)]+\)/g, 'Jinx')
+    .replace(/\bVi\b \([^)]+\)/g, 'Vi')
+    .replace(/\bCaitlyn\b \([^)]+\)/g, 'Caitlyn')
+    .replace(/\bEkko\b \([^)]+\)/g, 'Ekko')
+    .replace(/\bJayce\b \([^)]+\)/g, 'Jayce')
+    .replace(/\bViktor\b \([^)]+\)/g, 'Viktor')
+    .replace(/\bMel Medarda\b/g, 'Mel')
+    // Generic cleanup for other fandoms - keep first name before space
+    .replace(/\b(\w+)\s+\w+(?:\s+\w+)*/g, (match, firstName) => {
+      // Only apply to names that look like "FirstName LastName" pattern
+      if (match.includes('/') || match.includes('&')) return match;
+      return firstName;
+    })
+    .trim();
+}
+
+interface SinglePageStoryBrowserProps {
+  onFilterSaved?: () => void;
+  initialFilter?: {
+    name: string;
+    filters: SearchFilters;
+  };
+}
+
+export function SinglePageStoryBrowser({ onFilterSaved, initialFilter }: SinglePageStoryBrowserProps = {}) {
+  // Function to load state from sessionStorage
+  const loadPersistedState = () => {
+    if (typeof window === 'undefined') return null;
+    
+    try {
+      const persistedState = sessionStorage.getItem('browseStoriesState');
+      return persistedState ? JSON.parse(persistedState) : null;
+    } catch (error) {
+      console.error('Error loading persisted state:', error);
+      return null;
+    }
+  };
+
+  // Function to save state to sessionStorage
+  const saveStateToSession = (state: any) => {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      sessionStorage.setItem('browseStoriesState', JSON.stringify(state));
+    } catch (error) {
+      console.error('Error saving state to session:', error);
+    }
+  };
+
+  // Load persisted state or use initial filter
+  const persistedState = loadPersistedState();
+  const shouldUsePersisted = !initialFilter && persistedState; // Only use persisted if no initial filter
+
+  const [filters, setFilters] = useState<SearchFilters>(
+    shouldUsePersisted ? persistedState.filters :
+    initialFilter?.filters || {
+      query: '',
+      fandoms: [],
+      characters: [],
+      complete: '',
+      words_from: '',
+      words_to: '',
+      kudos_from: '',
+      sort_column: 'revised_at',
+      page: 1,
+    }
+  );
+
+  const [results, setResults] = useState<SearchResults | null>(
+    shouldUsePersisted ? persistedState.results : null
+  );
+  const [storiesLoading, setStoriesLoading] = useState(false);
+  const [savingStories, setSavingStories] = useState<Set<string>>(new Set());
+  const [savedStories, setSavedStories] = useState<Set<string>>(new Set());
+  const [showSaveFilterModal, setShowSaveFilterModal] = useState(false);
+  const [currentFilterName, setCurrentFilterName] = useState<string | null>(
+    shouldUsePersisted ? persistedState.currentFilterName :
+    initialFilter?.name || null
+  );
+  const [expandedRelationships, setExpandedRelationships] = useState<Set<string>>(
+    shouldUsePersisted ? new Set(persistedState.expandedRelationships || []) : new Set()
+  );
+
+  // Get dynamic pairings organized by selected fandoms
+  const fandomPairings = getPairingsForFandoms(filters.fandoms);
+
+  // Auto-search when initial filter is loaded
+  useEffect(() => {
+    if (initialFilter && filters.fandoms.length > 0) {
+      // Create an async function to handle the search
+      const autoSearch = async () => {
+        if (filters.fandoms.length === 0) return;
+
+        setStoriesLoading(true);
+        try {
+          const params = new URLSearchParams();
+          if (filters.query) params.append('query', filters.query);
+          
+          // Handle multiple fandoms
+          filters.fandoms.forEach(fandom => {
+            params.append('fandoms', fandom);
+          });
+
+          // Handle characters
+          filters.characters.forEach(character => {
+            params.append('characters', character);
+          });
+          
+          if (filters.complete) params.append('complete', filters.complete);
+          if (filters.words_from) params.append('words_from', filters.words_from);
+          if (filters.words_to) params.append('words_to', filters.words_to);
+          if (filters.kudos_from) params.append('kudos_from', filters.kudos_from);
+          if (filters.sort_column) params.append('sort_column', filters.sort_column);
+          params.append('page', filters.page.toString());
+
+          const response = await fetch(`/api/ao3/search?${params.toString()}`);
+          const result = await response.json();
+
+          if (result.success) {
+            setResults(result.data);
+          } else {
+            toast.error(result.error || 'Failed to search for stories');
+            setResults(null);
+          }
+        } catch (error) {
+          console.error('Search error:', error);
+          toast.error('An error occurred while searching for stories');
+          setResults(null);
+        } finally {
+          setStoriesLoading(false);
+        }
+      };
+
+      autoSearch();
+    }
+  }, [initialFilter]); // Only run once when component mounts with initial filter
+
+  // Save state to sessionStorage whenever key state changes
+  useEffect(() => {
+    if (filters.fandoms.length > 0 || results) { // Only save if there's meaningful state
+      const stateToSave = {
+        filters,
+        results,
+        currentFilterName,
+        expandedRelationships: Array.from(expandedRelationships),
+        timestamp: Date.now()
+      };
+      saveStateToSession(stateToSave);
+    }
+  }, [filters, results, currentFilterName, expandedRelationships]);
+
+  const handleFandomsChange = (fandoms: string[]) => {
+    setFilters(prev => ({ ...prev, fandoms, page: 1 }));
+  };
+
+  const handleFilterChange = (key: keyof SearchFilters, value: string | string[]) => {
+    setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
+  };
+
+  const toggleRelationshipExpansion = (storyId: string) => {
+    setExpandedRelationships(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(storyId)) {
+        newSet.delete(storyId);
+      } else {
+        newSet.add(storyId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSearch = async () => {
+    if (filters.fandoms.length === 0) {
+      toast.error("Please select at least one fandom to search");
+      return;
+    }
+
+    // Validate word count range
+    if (filters.words_from && filters.words_to) {
+      const minWords = parseInt(filters.words_from);
+      const maxWords = parseInt(filters.words_to);
+      if (minWords > maxWords) {
+        toast.error("Minimum word count cannot be greater than maximum word count");
+        return;
+      }
+    }
+
+    setStoriesLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filters.query) params.append('query', filters.query);
+      
+      // Handle multiple fandoms
+      filters.fandoms.forEach(fandom => {
+        params.append('fandoms', fandom);
+      });
+
+      // Handle characters
+      filters.characters.forEach(character => {
+        params.append('characters', character);
+      });
+      
+      if (filters.complete) params.append('complete', filters.complete);
+      if (filters.words_from) params.append('words_from', filters.words_from);
+      if (filters.words_to) params.append('words_to', filters.words_to);
+      if (filters.kudos_from) params.append('kudos_from', filters.kudos_from);
+      if (filters.sort_column) params.append('sort_column', filters.sort_column);
+      if (filters.page > 1) params.append('page', filters.page.toString());
+
+      const response = await fetch(`/api/ao3/search?${params.toString()}`);
+      const result = await response.json();
+
+      if (result.success) {
+        setResults(result.data);
+        toast.success(`Found ${result.data.stories.length} stories!`);
+      } else {
+        toast.error(result.error || 'Failed to search stories');
+      }
+    } catch (error) {
+      console.error('Error searching stories:', error);
+      toast.error('Network error occurred while searching');
+    } finally {
+      setStoriesLoading(false);
+    }
+  };
+
+  const handleSaveStory = async (story: AO3Story) => {
+    setSavingStories(prev => new Set([...prev, story.workId]));
+
+    try {
+      const response = await fetch("/api/stories/save", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(story),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setSavedStories(prev => new Set([...prev, story.workId]));
+        toast.success("Story saved to your library!");
+      } else {
+        if (response.status === 409) {
+          toast.info("Story is already in your library");
+          setSavedStories(prev => new Set([...prev, story.workId]));
+        } else {
+          toast.error(result.error || "Failed to save story");
+        }
+      }
+    } catch (error) {
+      console.error("Error saving story:", error);
+      toast.error("Network error occurred while saving story");
+    } finally {
+      setSavingStories(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(story.workId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleSaveFilter = async (filterName: string) => {
+    try {
+      const response = await fetch('/api/filter-sets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: filterName,
+          filters,
+          isPinned: false,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(`Filter "${filterName}" saved for future use!`);
+        setShowSaveFilterModal(false);
+        // Notify parent component that a filter was saved
+        if (onFilterSaved) {
+          onFilterSaved();
+        }
+      } else {
+        toast.error(result.error || 'Failed to save filter');
+      }
+    } catch (error) {
+      console.error('Error saving filter:', error);
+      toast.error('Failed to save filter');
+    }
+  };
+
+  const handlePageChange = async (page: number) => {
+    setFilters(prev => ({ ...prev, page }));
+    
+    // Immediately search with new page
+    setStoriesLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filters.query) params.append('query', filters.query);
+      
+      // Handle multiple fandoms
+      filters.fandoms.forEach(fandom => {
+        params.append('fandoms', fandom);
+      });
+
+      // Handle characters
+      filters.characters.forEach(character => {
+        params.append('characters', character);
+      });
+      
+      if (filters.complete) params.append('complete', filters.complete);
+      if (filters.words_from) params.append('words_from', filters.words_from);
+      if (filters.words_to) params.append('words_to', filters.words_to);
+      if (filters.kudos_from) params.append('kudos_from', filters.kudos_from);
+      if (filters.sort_column) params.append('sort_column', filters.sort_column);
+      params.append('page', page.toString());
+
+      const response = await fetch(`/api/ao3/search?${params.toString()}`);
+      const result = await response.json();
+
+      if (result.success) {
+        setResults(result.data);
+        toast.success(`Loaded page ${page}`);
+      } else {
+        toast.error(result.error || 'Failed to search stories');
+      }
+    } catch (error) {
+      console.error('Error searching stories:', error);
+      toast.error('Network error occurred while searching');
+    } finally {
+      setStoriesLoading(false);
+    }
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      query: '',
+      fandoms: [],
+      characters: [],
+      complete: '',
+      words_from: '',
+      words_to: '',
+      kudos_from: '',
+      sort_column: 'revised_at',
+      page: 1,
+    });
+    setResults(null);
+  };
+
+  return (
+    <div className="flex gap-6">
+      {/* Main Content Area - Results */}
+      <div className="flex-1 space-y-6">
+        {/* Results Section */}
+        {storiesLoading && (
+          <Card>
+            <CardContent className="pt-12 pb-12">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Searching for stories...</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {results && !storiesLoading && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Search Results</CardTitle>
+              <CardDescription>
+                Page {results.currentPage} of {results.totalPages} • {results.stories.length} stories found
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {results.stories.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground mb-4">
+                    No stories found matching your current filters.
+                  </p>
+                  <Button onClick={handleSearch}>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Try Again
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {results.stories.map((story) => {
+                    const isSaving = savingStories.has(story.workId);
+                    const isSaved = savedStories.has(story.workId);
+                    
+                    return (
+                      <div key={story.workId} className="pb-6 border-b last:border-b-0 space-y-3">
+                        {/* Header with Title, Author, Updated Date, and Save Button */}
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-lg leading-tight mb-2">
+                              <a 
+                                href={story.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="hover:text-blue-600 transition-colors"
+                              >
+                                {story.title}
+                              </a>
+                            </h3>
+                            <p className="text-sm text-muted-foreground mb-2">
+                              by {story.author}
+                            </p>
+                          </div>
+                          <div className="ml-3 shrink-0 flex items-center gap-3">
+                            <span className="text-xs text-muted-foreground">
+                              Updated {story.lastUpdatedDate}
+                            </span>
+                            <Button 
+                              variant={isSaved ? "secondary" : "outline"}
+                              size="sm"
+                              onClick={() => handleSaveStory(story)}
+                              disabled={isSaving}
+                              className={isSaved ? "bg-green-100 text-green-800 border-green-300" : ""}
+                            >
+                              {isSaving ? (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                              ) : isSaved ? (
+                                <>
+                                  <Heart className="w-4 h-4 mr-1 fill-current" />
+                                  Saved
+                                </>
+                              ) : (
+                                <>
+                                  <Heart className="w-4 h-4 mr-1" />
+                                  Save
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Fandom and Relationship Badges */}
+                        {(story.fandom.length > 0 || story.relationships.length > 0) && (
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {/* Fandom Badges */}
+                            {story.fandom.slice(0, 2).map((fandom, index) => (
+                              <Badge key={`fandom-${index}`} variant="secondary" className="text-xs">
+                                {fandom}
+                              </Badge>
+                            ))}
+                            {story.fandom.length > 2 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{story.fandom.length - 2} more fandoms
+                              </Badge>
+                            )}
+                            
+                            {/* Relationship Badges */}
+                            {story.relationships.slice(0, 2).map((relationship, index) => (
+                              <Badge key={`rel-${index}`} variant="outline" className="text-xs">
+                                {cleanRelationshipName(relationship)}
+                              </Badge>
+                            ))}
+                            {story.relationships.length > 2 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{story.relationships.length - 2} more relationships
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Summary */}
+                        {story.summary && (
+                          <div className="text-sm text-muted-foreground leading-relaxed mb-3 line-clamp-3">
+                            {story.summary.replace(/\n+/g, ' ').trim()}
+                          </div>
+                        )}
+
+                        {/* Stats */}
+                        <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                          <span>{story.wordCount.toLocaleString()} words</span>
+                          <span>{story.chapters.current}/{story.chapters.total || "?"} chapters</span>
+                          <span>{story.isComplete ? "Complete" : "In Progress"}</span>
+                          <span>👍 {story.kudos}</span>
+                          <span>📚 {story.bookmarks}</span>
+                          <span>👁 {story.hits}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Pagination */}
+        {results && results.totalPages > 1 && (
+          <div className="flex justify-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(results.currentPage - 1)}
+              disabled={results.currentPage <= 1 || storiesLoading}
+            >
+              Previous
+            </Button>
+            <span className="flex items-center px-4 py-2 text-sm">
+              Page {results.currentPage} of {results.totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(results.currentPage + 1)}
+              disabled={results.currentPage >= results.totalPages || storiesLoading}
+            >
+              Next
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Right Sidebar - Filters */}
+      <div className="w-80 shrink-0">
+        <Card className="sticky top-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Filter className="w-5 h-5" />
+              {currentFilterName ? `${currentFilterName}` : 'Filters'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+          {/* Fandoms Selection */}
+          <div className="space-y-2">
+            <ImprovedFandomSelector
+              selectedFandoms={filters.fandoms}
+              onFandomsChange={handleFandomsChange}
+            />
+          </div>
+
+          {/* Relationships */}
+          <div className="space-y-2">
+            <Label className="text-base font-medium">Relationships (Optional)</Label>
+            <PairingSelector
+              selectedPairings={filters.characters}
+              onPairingsChange={(pairings) => handleFilterChange('characters', pairings)}
+              selectedFandoms={filters.fandoms}
+            />
+            
+            {/* Show popular relationships as quick select buttons */}
+            {fandomPairings.length > 0 && (
+              <div className="space-y-3">
+                {fandomPairings.map((fandom) => (
+                  <div key={fandom.fandomName} className="space-y-2">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Popular in {fandom.fandomName}:
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {fandom.pairings.map((pairing) => (
+                        <Button
+                          key={pairing}
+                          variant={filters.characters.includes(pairing) ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => {
+                            const newChars = filters.characters.includes(pairing)
+                              ? filters.characters.filter(c => c !== pairing)
+                              : [...filters.characters, pairing];
+                            handleFilterChange('characters', newChars);
+                          }}
+                          className="text-xs"
+                        >
+                          {pairing}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Story Preferences */}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Completion Status</Label>
+              <Select 
+                value={filters.complete || "any"} 
+                onValueChange={(value) => handleFilterChange('complete', value === "any" ? "" : value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Any" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="any">Any</SelectItem>
+                  <SelectItem value="true">Complete Only</SelectItem>
+                  <SelectItem value="false">In Progress Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Minimum Kudos</Label>
+              <Input
+                type="number"
+                placeholder="e.g. 100"
+                value={filters.kudos_from}
+                onChange={(e) => handleFilterChange('kudos_from', e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Word Count</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  placeholder="Min (e.g. 1000)"
+                  value={filters.words_from}
+                  onChange={(e) => handleFilterChange('words_from', e.target.value)}
+                  className="flex-1"
+                />
+                <span className="self-center text-muted-foreground">to</span>
+                <Input
+                  type="number"
+                  placeholder="Max (e.g. 50000)"
+                  value={filters.words_to}
+                  onChange={(e) => handleFilterChange('words_to', e.target.value)}
+                  className="flex-1"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Sort By</Label>
+              <Select 
+                value={filters.sort_column} 
+                onValueChange={(value) => handleFilterChange('sort_column', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="revised_at">Recently Updated</SelectItem>
+                  <SelectItem value="kudos_count">Most Kudos</SelectItem>
+                  <SelectItem value="hits">Most Hits</SelectItem>
+                  <SelectItem value="bookmarks_count">Most Bookmarks</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            <Button onClick={handleSearch} disabled={storiesLoading || filters.fandoms.length === 0}>
+              <Search className="w-4 h-4 mr-2" />
+              {storiesLoading ? 'Searching...' : 'Search Stories'}
+            </Button>
+            <Button variant="outline" onClick={clearFilters}>
+              Clear All
+            </Button>
+            {results && results.stories.length > 0 && (
+              <Button 
+                variant="secondary"
+                onClick={() => setShowSaveFilterModal(true)}
+              >
+                <Save className="w-4 h-4 mr-2" />
+                Save This Filter
+              </Button>
+            )}
+          </div>
+        </CardContent>
+        </Card>
+      </div>
+    </div>
+
+    {/* Save Filter Modal */}
+    {showSaveFilterModal && (
+        <Card>
+          <CardContent className="pt-12 pb-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Searching for stories...</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {results && !storiesLoading && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Search Results</CardTitle>
+            <CardDescription>
+              Page {results.currentPage} of {results.totalPages} • {results.stories.length} stories found
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {results.stories.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground mb-4">
+                  No stories found matching your current filters.
+                </p>
+                <Button onClick={handleSearch}>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Try Again
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {results.stories.map((story) => {
+                  const isSaving = savingStories.has(story.workId);
+                  const isSaved = savedStories.has(story.workId);
+                  
+                  return (
+                    <div key={story.workId} className="pb-6 border-b last:border-b-0 space-y-3">
+                      {/* Header with Title, Author, Updated Date, and Save Button */}
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-lg leading-tight mb-2">
+                            <a 
+                              href={story.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="hover:text-blue-600 transition-colors"
+                            >
+                              {story.title}
+                            </a>
+                            <span className="text-sm text-muted-foreground font-normal ml-2">
+                              by {story.author}
+                            </span>
+                          </h3>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className="text-xs text-muted-foreground">
+                            Updated {story.lastUpdatedDate}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant={isSaved ? "secondary" : "default"}
+                            onClick={() => handleSaveStory(story)}
+                            disabled={isSaving || isSaved}
+                            className={isSaved ? "bg-green-100 text-green-800 hover:bg-green-200" : ""}
+                          >
+                            {isSaving ? (
+                              "Saving..."
+                            ) : isSaved ? (
+                              <>
+                                <Heart className="w-4 h-4 mr-1 fill-current" />
+                                Saved
+                              </>
+                            ) : (
+                              <>
+                                <Heart className="w-4 h-4 mr-1" />
+                                Save
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Fandom and Relationship Badges */}
+                      {(story.fandom.length > 0 || story.relationships.length > 0) && (
+                        <div className="flex flex-wrap gap-2">
+                          {/* Fandom Badges */}
+                          {story.fandom.slice(0, 3).map((fandom, index) => (
+                            <Badge key={`fandom-${index}`} variant="secondary" className="text-xs">
+                              {fandom}
+                            </Badge>
+                          ))}
+                          {story.fandom.length > 3 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{story.fandom.length - 3} more fandoms
+                            </Badge>
+                          )}
+                          
+                          {/* Relationship Badges */}
+                          {(() => {
+                            const isExpanded = expandedRelationships.has(story.workId);
+                            const relationshipsToShow = isExpanded 
+                              ? story.relationships 
+                              : story.relationships.slice(0, 3);
+                            
+                            return (
+                              <>
+                                {relationshipsToShow.map((relationship, index) => (
+                                  <Badge key={`rel-${index}`} variant="outline" className="text-xs">
+                                    {cleanRelationshipName(relationship)}
+                                  </Badge>
+                                ))}
+                                {story.relationships.length > 3 && (
+                                  <Badge 
+                                    variant="outline" 
+                                    className="text-xs cursor-pointer hover:bg-muted/50 transition-colors"
+                                    onClick={() => toggleRelationshipExpansion(story.workId)}
+                                  >
+                                    {isExpanded 
+                                      ? 'Show less'
+                                      : `+${story.relationships.length - 3} more relationships`
+                                    }
+                                  </Badge>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
+                      )}
+
+                      {/* Summary */}
+                      {story.summary && story.summary.trim() ? (
+                        <div className="bg-muted/30 rounded-md p-3">
+                          <div className="text-sm leading-relaxed">
+                            {story.summary.replace(/\n+/g, ' ').trim()}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-muted/30 rounded-md p-3">
+                          <div className="text-sm text-muted-foreground italic">
+                            No summary available
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Metadata */}
+                      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                        <span className="font-medium">{story.wordCount.toLocaleString()} words</span>
+                        <span>{story.chapters.current}/{story.chapters.total || "?"} chapters</span>
+                        <span className={story.isComplete ? "text-green-600" : "text-blue-600"}>
+                          {story.isComplete ? "✓ Complete" : "📝 In Progress"}
+                        </span>
+                        <span className="font-medium">👍 {story.kudos} kudos</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Pagination */}
+            {results.totalPages > 1 && (
+              <div className="flex justify-center gap-2 mt-6 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  disabled={results.currentPage <= 1 || storiesLoading}
+                  onClick={() => handlePageChange(results.currentPage - 1)}
+                >
+                  Previous
+                </Button>
+                <span className="flex items-center px-4 text-sm text-muted-foreground">
+                  Page {results.currentPage} of {results.totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  disabled={results.currentPage >= results.totalPages || storiesLoading}
+                  onClick={() => handlePageChange(results.currentPage + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Save Filter Modal */}
+      {showSaveFilterModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md mx-4">
+            <CardHeader>
+              <CardTitle>Save Filter for Later</CardTitle>
+              <CardDescription>
+                Give your filter a name so you can quickly access it again
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="filter-name">Filter Name</Label>
+                  <Input
+                    id="filter-name"
+                    placeholder="e.g., Harry Potter Complete Longfics"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const filterName = (e.target as HTMLInputElement).value;
+                        if (filterName.trim()) {
+                          handleSaveFilter(filterName.trim());
+                        }
+                      }
+                    }}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => {
+                      const input = document.getElementById('filter-name') as HTMLInputElement;
+                      const filterName = input.value.trim();
+                      if (filterName) {
+                        handleSaveFilter(filterName);
+                      }
+                    }}
+                  >
+                    Save Filter
+                  </Button>
+                  <Button variant="outline" onClick={() => setShowSaveFilterModal(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}

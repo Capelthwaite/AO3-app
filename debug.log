@@ -1,0 +1,36 @@
+
+> apple-pass@0.1.0 dev
+> next dev --port 3000 --hostname 0.0.0.0
+
+   ▲ Next.js 15.3.1
+   - Local:        http://localhost:3000
+   - Network:      http://0.0.0.0:3000
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 1210ms
+ ○ Compiling / ...
+[Error: Cannot apply unknown utility class: border-border]
+ ✓ Compiled / in 1458ms (822 modules)
+ GET / 200 in 1672ms
+ ✓ Compiled /middleware in 288ms (164 modules)
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 4.1s (3768 modules)
+ GET /dashboard 200 in 6206ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /api/auth/[...all] in 2.2s (3772 modules)
+ ✓ Compiled in 276ms (1133 modules)
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 2789ms
+ GET /favicon.ico 200 in 2086ms
+ GET /api/stories 200 in 2297ms
+ GET /api/stories/stats 200 in 2388ms
+ GET /api/auth/get-session 200 in 2862ms
+ GET /api/auth/get-session 200 in 93ms
+ GET / 200 in 67ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 34ms
+ GET /dashboard 200 in 393ms
+ GET /api/auth/get-session 200 in 125ms
+ GET /api/auth/get-session 200 in 95ms
+ GET /api/stories 200 in 284ms
+ GET /api/stories/stats 200 in 429ms
+[?25h

@@ -15,10 +15,11 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authClient } from "@/lib/auth-client";
-import { ExternalLink, Settings2 } from "lucide-react";
+import { ExternalLink, Settings2, Monitor, Moon, Sun } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useTheme } from "next-themes";
 
 interface User {
   id: string;
@@ -61,6 +62,7 @@ function SettingsContent() {
   const [currentTab, setCurrentTab] = useState("profile");
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { theme, setTheme } = useTheme();
 
   // Profile form states
   const [name, setName] = useState("");
@@ -76,7 +78,7 @@ function SettingsContent() {
   // Handle URL tab parameter
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (tab && ["profile", "organization", "billing"].includes(tab)) {
+    if (tab && ["profile", "appearance", "billing"].includes(tab)) {
       setCurrentTab(tab);
     }
   }, [searchParams]);
@@ -292,6 +294,7 @@ function SettingsContent() {
       >
         <TabsList>
           <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="appearance">Appearance</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
         </TabsList>
 
@@ -389,6 +392,67 @@ function SettingsContent() {
               </div>
 
               <Button onClick={handleUpdateProfile}>Save Changes</Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="appearance" className="space-y-6">
+          {/* Theme Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Monitor className="h-5 w-5" />
+                Theme Settings
+              </CardTitle>
+              <CardDescription>
+                Choose how the interface looks and feels to you
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <Label className="text-sm font-medium">Appearance</Label>
+                <div className="grid grid-cols-3 gap-3">
+                  <Button
+                    variant={theme === "light" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setTheme("light")}
+                    className="flex items-center gap-2 h-auto p-4"
+                  >
+                    <Sun className="h-4 w-4" />
+                    <div className="text-left">
+                      <div className="font-medium">Light</div>
+                      <div className="text-xs text-muted-foreground">Bright and clean</div>
+                    </div>
+                  </Button>
+                  <Button
+                    variant={theme === "dark" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setTheme("dark")}
+                    className="flex items-center gap-2 h-auto p-4"
+                  >
+                    <Moon className="h-4 w-4" />
+                    <div className="text-left">
+                      <div className="font-medium">Dark</div>
+                      <div className="text-xs text-muted-foreground">Easy on the eyes</div>
+                    </div>
+                  </Button>
+                  <Button
+                    variant={theme === "system" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setTheme("system")}
+                    className="flex items-center gap-2 h-auto p-4"
+                  >
+                    <Monitor className="h-4 w-4" />
+                    <div className="text-left">
+                      <div className="font-medium">System</div>
+                      <div className="text-xs text-muted-foreground">Use device setting</div>
+                    </div>
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  The theme will be applied immediately and remembered for your next visit.
+                </p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
