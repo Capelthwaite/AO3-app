@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { toast } from "sonner";
+import { UI_LIMITS, LOADING_STATES, ARIA_LABELS } from "@/constants/ui-config";
 
 // Helper function to format updated dates consistently
 function formatUpdatedDate(dateString: string): string {
@@ -233,7 +234,7 @@ export function AO3Fetcher({ onStorySaved }: AO3FetcherProps = {}) {
               className="flex-1 h-10"
             />
             <Button onClick={handleFetch} disabled={loading} size="default" variant="default" className="shrink-0 px-6">
-              {loading ? "Loading..." : "Add Story"}
+              {loading ? LOADING_STATES.FETCHING : "Add Story"}
             </Button>
           </div>
         </CardContent>
@@ -278,31 +279,31 @@ export function AO3Fetcher({ onStorySaved }: AO3FetcherProps = {}) {
               {(storyData.fandom.length > 0 || storyData.relationships.length > 0) && (
                 <div className="flex flex-wrap gap-2">
                   {/* Fandom Badges */}
-                  {storyData.fandom.slice(0, 2).map((fandom, index) => (
+                  {storyData.fandom.slice(0, UI_LIMITS.INITIAL_FANDOM_BADGES).map((fandom, index) => (
                     <Badge key={`fandom-${index}`} variant="secondary" className="text-xs px-3 py-1 font-medium bg-muted/50">
                       {fandom}
                     </Badge>
                   ))}
-                  {storyData.fandom.length > 2 && (
+                  {storyData.fandom.length > UI_LIMITS.INITIAL_FANDOM_BADGES && (
                     <Badge variant="outline" className="text-xs px-3 py-1 font-medium">
-                      +{storyData.fandom.length - 2} more fandoms
+                      +{storyData.fandom.length - UI_LIMITS.INITIAL_FANDOM_BADGES} more fandoms
                     </Badge>
                   )}
                   
                   {/* Relationship Badges */}
-                  {(expandedRelationships ? storyData.relationships : storyData.relationships.slice(0, 2)).map((relationship, index) => (
+                  {(expandedRelationships ? storyData.relationships : storyData.relationships.slice(0, UI_LIMITS.INITIAL_RELATIONSHIP_BADGES)).map((relationship, index) => (
                     <Badge key={`rel-${index}`} variant="outline" className="text-xs px-3 py-1 font-medium bg-background">
                       {cleanRelationshipName(relationship)}
                     </Badge>
                   ))}
-                  {storyData.relationships.length > 2 && (
+                  {storyData.relationships.length > UI_LIMITS.INITIAL_RELATIONSHIP_BADGES && (
                     <button
                       onClick={() => setExpandedRelationships(!expandedRelationships)}
                       className="text-xs font-medium px-3 py-1 rounded-md border border-purple-200 text-purple-600 hover:border-purple-300 hover:bg-purple-50 transition-colors"
                     >
                       {expandedRelationships 
                         ? 'Show less' 
-                        : `+${storyData.relationships.length - 2} more relationships`
+                        : `+${storyData.relationships.length - UI_LIMITS.INITIAL_RELATIONSHIP_BADGES} more relationships`
                       }
                     </button>
                   )}
@@ -325,7 +326,7 @@ export function AO3Fetcher({ onStorySaved }: AO3FetcherProps = {}) {
                   className={isSaved ? "bg-green-600 hover:bg-green-700 text-white" : ""}
                   size="default"
                 >
-                  {saving ? "Saving..." : isSaved ? "✓ Saved" : "Save to Library"}
+                  {saving ? LOADING_STATES.SAVING : isSaved ? "✓ Saved" : "Save to Library"}
                 </Button>
                 <Button variant="outline" size="default" className="shadow-sm" asChild>
                   <a href={storyData.url} target="_blank" rel="noopener noreferrer">

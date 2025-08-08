@@ -109,17 +109,44 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Delete the story from user's library
+    // Verify the story exists and belongs to the user before attempting deletion
+    const existingStory = await db
+      .select()
+      .from(userStories)
+      .where(and(
+        eq(userStories.userId, userId),
+        eq(userStories.id, storyId)
+      ))
+      .limit(1);
+
+    if (existingStory.length === 0) {
+      return NextResponse.json(
+        { error: 'Story not found in your library' },
+        { status: 404 }
+      );
+    }
+
+    // Delete the story from user's library with transaction verification
     const result = await db
       .delete(userStories)
       .where(and(
         eq(userStories.userId, userId),
         eq(userStories.id, storyId)
-      ));
+      ))
+      .returning({ deletedId: userStories.id });
+
+    // Verify the deletion was successful
+    if (result.length === 0) {
+      throw new Error('Delete operation failed - no rows affected');
+    }
+
+    // Log the deletion for audit purposes (non-PII)
+    console.log(`Story deletion successful: userId=${userId}, storyId=${storyId}, timestamp=${new Date().toISOString()}`);
 
     return NextResponse.json({
       success: true,
-      message: 'Story removed from library successfully'
+      message: 'Story removed from library successfully',
+      deletedStoryId: storyId
     });
 
   } catch (error) {

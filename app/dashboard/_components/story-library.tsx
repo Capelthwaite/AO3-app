@@ -3,8 +3,11 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { StoryLibrarySkeleton } from "@/components/ui/story-card-skeleton";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { UI_LIMITS, CONFIRMATION_MESSAGES, LOADING_STATES, ARIA_LABELS } from "@/constants/ui-config";
 
 // Helper function to format dates consistently as DD Mon YYYY with enhanced parsing
 function formatDate(dateString: string | null | undefined): string {
@@ -171,6 +174,15 @@ export function StoryLibrary() {
   const [sortOption, setSortOption] = useState<SortOption>('unread-first');
   const [refreshing, setRefreshing] = useState(false);
   const [deletingStory, setDeletingStory] = useState<string | null>(null);
+  const [confirmationDialog, setConfirmationDialog] = useState<{
+    open: boolean;
+    storyId: string;
+    storyTitle: string;
+  }>({
+    open: false,
+    storyId: '',
+    storyTitle: '',
+  });
 
   useEffect(() => {
     async function fetchStories() {
@@ -261,13 +273,21 @@ export function StoryLibrary() {
     }
   };
 
-  const handleDeleteStory = async (storyId: string, storyTitle: string) => {
-    // Ask for confirmation
-    const confirmed = window.confirm(`Are you sure you want to remove "${storyTitle}" from your library? This action cannot be undone.`);
-    
-    if (!confirmed) return;
+  const handleDeleteStory = (storyId: string, storyTitle: string) => {
+    setConfirmationDialog({
+      open: true,
+      storyId,
+      storyTitle,
+    });
+  };
 
+  const confirmDeleteStory = async () => {
+    const { storyId } = confirmationDialog;
     setDeletingStory(storyId);
+
+    // Optimistically remove the story from local state for immediate UI feedback
+    const previousStories = stories;
+    setStories(prev => prev.filter(story => story.id !== storyId));
 
     try {
       const response = await fetch(`/api/stories?storyId=${storyId}`, {
@@ -277,14 +297,14 @@ export function StoryLibrary() {
       const result = await response.json();
 
       if (result.success) {
-        // Remove the story from local state
-        setStories(prev => prev.filter(story => story.id !== storyId));
         toast.success('Story removed from library');
       } else {
         throw new Error(result.error || 'Failed to delete story');
       }
     } catch (error) {
       console.error('Error deleting story:', error);
+      // Revert the optimistic update on error
+      setStories(previousStories);
       toast.error('Failed to remove story from library');
     } finally {
       setDeletingStory(null);
@@ -298,9 +318,7 @@ export function StoryLibrary() {
           <h1 className="text-3xl font-semibold tracking-tight">My Library</h1>
           <p className="text-muted-foreground">Loading your saved stories...</p>
         </div>
-        <div className="text-center py-12 text-muted-foreground">
-          <p>Loading...</p>
-        </div>
+        <StoryLibrarySkeleton />
       </div>
     );
   }
@@ -515,8 +533,9 @@ export function StoryLibrary() {
                         onClick={() => handleDeleteStory(story.id, story.title)}
                         disabled={deletingStory === story.id}
                         className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+                        aria-label={ARIA_LABELS.DELETE_STORY}
                       >
-                        {deletingStory === story.id ? 'Removing...' : '🗑'}
+                        {deletingStory === story.id ? LOADING_STATES.DELETING : '🗑'}
                       </Button>
                       <Button 
                         variant="outline" 
@@ -526,6 +545,7 @@ export function StoryLibrary() {
                           // Open the link after marking as read
                           window.open(story.url, '_blank', 'noopener,noreferrer');
                         }}
+                        aria-label={ARIA_LABELS.READ_STORY}
                       >
                         Read on AO3 ↗
                       </Button>
@@ -537,31 +557,31 @@ export function StoryLibrary() {
                 {(story.fandom.length > 0 || story.relationships.length > 0) && (
                   <div className="flex flex-wrap gap-2 mb-4">
                     {/* Fandom Badges */}
-                    {story.fandom.slice(0, 2).map((fandom, index) => (
+                    {story.fandom.slice(0, UI_LIMITS.INITIAL_FANDOM_BADGES).map((fandom, index) => (
                       <Badge key={`fandom-${index}`} variant="secondary" className="text-xs px-3 py-1 font-medium bg-muted/50">
                         {fandom}
                       </Badge>
                     ))}
-                    {story.fandom.length > 2 && (
+                    {story.fandom.length > UI_LIMITS.INITIAL_FANDOM_BADGES && (
                       <Badge variant="outline" className="text-xs px-3 py-1 font-medium">
-                        +{story.fandom.length - 2} more fandoms
+                        +{story.fandom.length - UI_LIMITS.INITIAL_FANDOM_BADGES} more fandoms
                       </Badge>
                     )}
                     
                     {/* Relationship Badges */}
-                    {(isRelationshipsExpanded ? story.relationships : story.relationships.slice(0, 2)).map((relationship, index) => (
+                    {(isRelationshipsExpanded ? story.relationships : story.relationships.slice(0, UI_LIMITS.INITIAL_RELATIONSHIP_BADGES)).map((relationship, index) => (
                       <Badge key={`rel-${index}`} variant="outline" className="text-xs px-3 py-1 font-medium bg-background">
                         {cleanRelationshipName(relationship)}
                       </Badge>
                     ))}
-                    {story.relationships.length > 2 && (
+                    {story.relationships.length > UI_LIMITS.INITIAL_RELATIONSHIP_BADGES && (
                       <button
                         onClick={() => toggleRelationships(story.id)}
                         className="text-xs font-medium px-3 py-1 rounded-md border border-purple-200 text-purple-600 hover:border-purple-300 hover:bg-purple-50 transition-colors"
                       >
                         {isRelationshipsExpanded 
                           ? 'Show less' 
-                          : `+${story.relationships.length - 2} more relationships`
+                          : `+${story.relationships.length - UI_LIMITS.INITIAL_RELATIONSHIP_BADGES} more relationships`
                         }
                       </button>
                     )}
@@ -608,6 +628,19 @@ export function StoryLibrary() {
           })
         )}
       </div>
+
+      {/* Confirmation Dialog for Story Deletion */}
+      <ConfirmationDialog
+        open={confirmationDialog.open}
+        onOpenChange={(open) => setConfirmationDialog(prev => ({ ...prev, open }))}
+        title={CONFIRMATION_MESSAGES.DELETE_STORY.getTitle(confirmationDialog.storyTitle)}
+        description={CONFIRMATION_MESSAGES.DELETE_STORY.getDescription(confirmationDialog.storyTitle)}
+        confirmText={CONFIRMATION_MESSAGES.DELETE_STORY.confirmText}
+        cancelText={CONFIRMATION_MESSAGES.DELETE_STORY.cancelText}
+        variant="destructive"
+        onConfirm={confirmDeleteStory}
+        loading={deletingStory === confirmationDialog.storyId}
+      />
     </div>
   );
 }
